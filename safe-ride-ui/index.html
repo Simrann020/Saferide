@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SafeRide - Smarter Route Planning</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --primary: #0b69ff;
+      --primary-dark: #0550d9;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --bg-light: #f8fafc;
+      --bg-white: #ffffff;
+      --border-color: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      color: var(--text-primary);
+      background: var(--bg-light);
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      height: 100%;
+    }
+
+    #map {
+      position: relative;
+      background: var(--bg-light);
+    }
+
+    #map > .maplibregl-map {
+      position: absolute;
+      inset: 0;
+    }
+
+    #panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-white);
+      border-right: 1px solid var(--border-color);
+      overflow-y: auto;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .panel-header {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(135deg, var(--primary) 0%, #0550d9 100%);
+      color: white;
+    }
+
+    .panel-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-header p {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .panel-content {
+      flex: 1;
+      padding: 24px 20px;
+      overflow-y: auto;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      background: var(--bg-white);
+      color: var(--text-primary);
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(11, 105, 255, 0.1);
+    }
+
+    .form-control::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .legend-section {
+      margin: 24px 0;
+      padding: 16px;
+      background: var(--bg-light);
+      border-radius: 10px;
+    }
+
+    .legend-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .legend-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .legend-color.green {
+      background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    }
+
+    .legend-color.yellow {
+      background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);
+    }
+
+    .legend-color.red {
+      background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+    }
+
+    .routes-container {
+      margin-top: 24px;
+    }
+
+    .routes-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .routes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .route-card {
+      background: var(--bg-white);
+      border: 1.5px solid var(--border-color);
+      border-left: 4px solid transparent;
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .route-card:hover {
+      border-color: var(--border-color);
+      box-shadow: var(--shadow-md);
+      transform: translateX(4px);
+    }
+
+    .route-card.winner {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%);
+      border-color: var(--success);
+      border-left-color: var(--success);
+    }
+
+    .route-card.winner:hover {
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1), var(--shadow-md);
+    }
+
+    .route-card.medium {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%);
+      border-color: var(--warning);
+      border-left-color: var(--warning);
+    }
+
+    .route-card.medium:hover {
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1), var(--shadow-md);
+    }
+
+    .route-card.high {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%);
+      border-color: var(--danger);
+      border-left-color: var(--danger);
+    }
+
+    .route-card.high:hover {
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1), var(--shadow-md);
+    }
+
+    .route-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .route-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .route-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .route-badge.winner {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
+    .route-badge.medium {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+    .route-badge.high {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+    }
+
+    .route-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .route-stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      padding: 8px 10px;
+      background: var(--bg-light);
+      border-radius: 6px;
+    }
+
+    .route-stat strong {
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .route-comparison {
+      padding: 10px;
+      background: var(--bg-light);
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .route-comparison-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .route-comparison-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .comparison-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .comparison-badge.better {
+      background: var(--success);
+    }
+
+    .comparison-badge.worse {
+      background: var(--danger);
+    }
+
+    .comparison-text {
+      flex: 1;
+    }
+
+    .status-message {
+      margin-top: 16px;
+      padding: 12px;
+      background: var(--bg-light);
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      border-left: 3px solid var(--primary);
+    }
+
+    .ac-wrap {
+      position: relative;
+    }
+
+    .ac-list {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 20;
+      background: var(--bg-white);
+      border: 1.5px solid var(--border-color);
+      border-radius: 10px;
+      box-shadow: var(--shadow-lg);
+      max-height: 240px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .ac-item {
+      padding: 12px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1.4;
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 10px;
+      align-items: start;
+      border-bottom: 1px solid var(--border-color);
+      transition: all 0.15s ease;
+    }
+
+    .ac-item:last-child {
+      border-bottom: none;
+    }
+
+    .ac-item:hover,
+    .ac-item.active {
+      background: var(--bg-light);
+    }
+
+    .ac-emoji {
+      opacity: 0.7;
+      font-size: 16px;
+    }
+
+    .ac-footer {
+      padding: 10px 14px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-light);
+    }
+
+    .marker {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 3px solid var(--bg-white);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .marker.start {
+      background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6), 0 2px 12px rgba(0, 0, 0, 0.2);
+      animation: pulse 2s infinite;
+    }
+
+    .marker.end {
+      background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6), 0 2px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .marker .ring {
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      opacity: 0.4;
+    }
+
+    .marker.end .ring {
+      animation: bounce 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6), 0 2px 12px rgba(0, 0, 0, 0.2);
+      }
+      70% {
+        box-shadow: 0 0 0 16px rgba(16, 185, 129, 0), 0 2px 12px rgba(0, 0, 0, 0.2);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 2px 12px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    @keyframes bounce {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.4;
+      }
+      50% {
+        transform: scale(1.2);
+        opacity: 0.1;
+      }
+    }
+
+    /* Scrollbar styling */
+    .panel-content::-webkit-scrollbar,
+    .routes-list::-webkit-scrollbar,
+    .ac-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .panel-content::-webkit-scrollbar-track,
+    .routes-list::-webkit-scrollbar-track,
+    .ac-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .panel-content::-webkit-scrollbar-thumb,
+    .routes-list::-webkit-scrollbar-thumb,
+    .ac-list::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+
+    .panel-content::-webkit-scrollbar-thumb:hover,
+    .routes-list::-webkit-scrollbar-thumb:hover,
+    .ac-list::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+
+    @media (max-width: 768px) {
+      #app {
+        grid-template-columns: 1fr;
+      }
+
+      #panel {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 100;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      #map {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="panel">
+      <div class="panel-header">
+        <h1><i class="fas fa-shield-alt"></i> SafeRide</h1>
+        <p>Find safer routes with confidence</p>
+      </div>
+
+      <div class="panel-content">
+        <div class="form-group ac-wrap">
+          <label class="form-label" for="from">📍 From</label>
+          <input class="form-control" id="from" placeholder="Enter starting location" autocomplete="off" />
+          <div id="ac-from" class="ac-list"></div>
+        </div>
+
+        <div class="form-group ac-wrap">
+          <label class="form-label" for="to">📍 To</label>
+          <input class="form-control" id="to" placeholder="Enter destination" autocomplete="off" />
+          <div id="ac-to" class="ac-list"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="theme">🌙 Theme</label>
+          <select class="form-control" id="theme">
+            <option value="dark" selected>Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" id="go">
+          <i class="fas fa-search"></i> Find Safer Route
+        </button>
+
+        <div class="legend-section">
+          <div class="legend-title">Route Safety</div>
+          <div class="legend-item">
+            <div class="legend-color green"></div>
+            <span><strong>Best Route</strong> - Fewest crashes</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color yellow"></div>
+            <span><strong>Average</strong> - Moderate risk</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color red"></div>
+            <span><strong>Higher Risk</strong> - More crashes</span>
+          </div>
+        </div>
+
+        <div class="routes-container" id="routes-container" style="display: none;">
+          <div class="routes-title">Available Routes</div>
+          <div id="routes-info" class="routes-list"></div>
+        </div>
+
+        <div id="status" class="status-message">
+          <i class="fas fa-info-circle"></i> Powered by OpenStreetMap & Nominatim
+        </div>
+      </div>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+  <script src="app.js?v=20251115"></script>
+</body>
+</html>
