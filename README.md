@@ -3,8 +3,7 @@
 A crash-aware multi-route ranking service that helps users find safer routes for driving, cycling, and walking.
 
 
-## Team Mates
-## Rohan Jain and Simran Jadhav
+## Team Mates - Rohan Jain and Simran Jadhav
 
 ## Architecture
 
