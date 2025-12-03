@@ -2,6 +2,10 @@
 
 A crash-aware multi-route ranking service that helps users find safer routes for driving, cycling, and walking.
 
+# Project Group 1
+# Team Mates
+## Rohan Jain and Simran Jadhav
+
 ## Architecture
 
 - **Database**: PostgreSQL with PostGIS extension (Docker)
